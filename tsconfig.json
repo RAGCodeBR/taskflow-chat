@@ -1,0 +1,89 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "baseUrl": ".",
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts",
+    ".local/builds/build-3212e19d3d4f/types/**/*.ts",
+    ".local/builds/build-3212e19d3d4f/dev/types/**/*.ts",
+    ".local/builds/build-84c69b3bf4ea/types/**/*.ts",
+    ".local/builds/build-84c69b3bf4ea/dev/types/**/*.ts",
+    ".local/builds/build-2ab7f17a1940/types/**/*.ts",
+    ".local/builds/build-2ab7f17a1940/dev/types/**/*.ts",
+    ".local/builds/build-83085f371cd0/types/**/*.ts",
+    ".local/builds/build-83085f371cd0/dev/types/**/*.ts",
+    ".local/builds/build-b429dceda8b1/types/**/*.ts",
+    ".local/builds/build-b429dceda8b1/dev/types/**/*.ts",
+    ".local/builds/build-684ccd83727f/types/**/*.ts",
+    ".local/builds/build-684ccd83727f/dev/types/**/*.ts",
+    ".local/builds/build-98519442183c/types/**/*.ts",
+    ".local/builds/build-98519442183c/dev/types/**/*.ts",
+    ".local/builds/build-5eeaee883e66/types/**/*.ts",
+    ".local/builds/build-5eeaee883e66/dev/types/**/*.ts",
+    ".local/builds/build-6375e69baba8/types/**/*.ts",
+    ".local/builds/build-6375e69baba8/dev/types/**/*.ts",
+    ".local/builds/build-1745113e8c59/types/**/*.ts",
+    ".local/builds/build-1745113e8c59/dev/types/**/*.ts",
+    ".local/builds/build-079980a32328/types/**/*.ts",
+    ".local/builds/build-079980a32328/dev/types/**/*.ts",
+    ".local/builds/build-888e6ca721b8/types/**/*.ts",
+    ".local/builds/build-888e6ca721b8/dev/types/**/*.ts",
+    ".local/builds/build-9ed37210f9f9/types/**/*.ts",
+    ".local/builds/build-9ed37210f9f9/dev/types/**/*.ts",
+    ".local/builds/build-d6b5929f3a32/types/**/*.ts",
+    ".local/builds/build-d6b5929f3a32/dev/types/**/*.ts",
+    ".local/builds/build-20261022-progress/types/**/*.ts",
+    ".local/builds/build-20261022-progress/dev/types/**/*.ts",
+    ".local/builds/build-20261022-video/types/**/*.ts",
+    ".local/builds/build-20261022-video/dev/types/**/*.ts",
+    ".local/builds/build-20261022-video-final/types/**/*.ts",
+    ".local/builds/build-20261022-video-final/dev/types/**/*.ts",
+    ".local/builds/build-20261022-video-final2/types/**/*.ts",
+    ".local/builds/build-20261022-video-final2/dev/types/**/*.ts",
+    ".local/builds/build-20261022-receipts/types/**/*.ts",
+    ".local/builds/build-20261022-receipts/dev/types/**/*.ts",
+    ".local/builds/build-20261025-encaminhar/types/**/*.ts",
+    ".local/builds/build-20261025-encaminhar/dev/types/**/*.ts",
+    ".local/builds/build-20261025-destinos/types/**/*.ts",
+    ".local/builds/build-20261025-destinos/dev/types/**/*.ts",
+    ".local/builds/build-20261025-alertas/types/**/*.ts",
+    ".local/builds/build-20261025-alertas/dev/types/**/*.ts",
+    ".local/builds/build-20261025-pendencias/types/**/*.ts",
+    ".local/builds/build-20261025-pendencias/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
