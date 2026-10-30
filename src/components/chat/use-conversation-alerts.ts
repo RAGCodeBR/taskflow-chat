@@ -9,6 +9,9 @@ import { useSocket } from "./socket-context";
 import type { BoardChat } from "./conversation-board";
 import { alertPreview, alertToastId } from "@/lib/message-alerts";
 
+const ALERT_DISPLAY_MS = 8000;
+const DESKTOP_ALERT_INTERVAL_MS = 15000;
+
 export interface IncomingMessage {
     keyId: string; remoteJid: string; fromMe: boolean; timestamp: string;
     content: string | null; type: string; pushName?: string | null;
@@ -35,6 +38,7 @@ export function useConversationAlerts({ sessionId, chats, selectedJid, onSelect,
     const audio = useRef<AudioContext | null>(null);
     const lastSound = useRef(0);
     const seen = useRef(new Set<string>());
+    const lastDesktopAlert = useRef(new Map<string, number>());
     // Open alerts per conversation: unread count shown on the toast and the matching system notification.
     const alerts = useRef(new Map<string, { count: number; notification?: Notification }>());
     const clearAlert = useCallback((jid: string) => {
@@ -60,7 +64,8 @@ export function useConversationAlerts({ sessionId, chats, selectedJid, onSelect,
     // Alerts belong to this account's panel: remove them when switching account or leaving the chat.
     useEffect(() => {
         const open = alerts.current;
-        return () => { for (const [jid, alert] of open) { toast.dismiss(alertToastId(sessionId, jid)); alert.notification?.close(); } open.clear(); };
+        const desktopTimes = lastDesktopAlert.current;
+        return () => { for (const [jid, alert] of open) { toast.dismiss(alertToastId(sessionId, jid)); alert.notification?.close(); } open.clear(); desktopTimes.clear(); };
     }, [sessionId]);
     useEffect(() => {
         setReady(false);
@@ -144,13 +149,21 @@ export function useConversationAlerts({ sessionId, chats, selectedJid, onSelect,
                 toast.custom(() => createElement(IncomingMessageToast, {
                     sessionId, jid, name, profilePic: chat?.profilePic || null, count: alert.count, preview,
                     onOpen: open, onClose: () => clearAlert(jid),
-                }), { id: alertToastId(sessionId, jid), duration: Infinity, onDismiss: () => { if (alerts.current.get(jid) === alert) alerts.current.delete(jid); } });
+                }), {
+                    id: alertToastId(sessionId, jid), duration: ALERT_DISPLAY_MS,
+                    onDismiss: () => { if (alerts.current.get(jid) === alert) alerts.current.delete(jid); },
+                    onAutoClose: () => { if (alerts.current.get(jid) === alert) alerts.current.delete(jid); },
+                });
                 if (latest.current.desktop && typeof Notification !== 'undefined' && Notification.permission === 'granted' && (document.visibilityState !== 'visible' || !document.hasFocus())) {
+                    const now = Date.now();
+                    if (now - (lastDesktopAlert.current.get(jid) || 0) < DESKTOP_ALERT_INTERVAL_MS) continue;
+                    lastDesktopAlert.current.set(jid, now);
                     alert.notification?.close();
-                    // Stays until clicked or dismissed, and alerts again for each new message of the same conversation.
-                    const options = { body: alert.count > 1 ? `${alert.count} novas mensagens · ${preview}` : preview, tag: `chat:${sessionId}:${jid}`, icon: chat?.profilePic || undefined, requireInteraction: true, renotify: true };
+                    const options = { body: alert.count > 1 ? `${alert.count} novas mensagens · ${preview}` : preview, tag: `chat:${sessionId}:${jid}`, icon: chat?.profilePic || undefined, requireInteraction: false, renotify: false };
                     const notification = new Notification(`Mensagem de ${name}`, options as NotificationOptions);
                     notification.onclick = () => { open(); notification.close(); };
+                    const closeTimer = window.setTimeout(() => notification.close(), ALERT_DISPLAY_MS);
+                    notification.onclose = () => { window.clearTimeout(closeTimer); if (alert.notification === notification) alert.notification = undefined; };
                     alert.notification = notification;
                 }
             }
