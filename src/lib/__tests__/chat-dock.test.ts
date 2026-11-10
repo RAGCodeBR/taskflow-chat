@@ -1,18 +1,23 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
-    closeInDock, dockCapacity, fitDock, focusInDock, minimizeInDock, minimizedEntries, openInDock,
+    closeInDock, dockCapacity, dockSlotWidth, fitDock, focusInDock, minimizeInDock, minimizedEntries, openInDock,
     parseDock, serializeDock, toggleExpandInDock, visibleEntries, DOCK_MAX_ENTRIES, type DockEntry,
 } from "../chat-dock";
 
 const jids = (list: DockEntry[]) => list.map(entry => entry.jid);
 
 describe("dockCapacity", () => {
-    it("shows one window on phones and as many as fit on wide screens", () => {
+    it("shows one window on phones and as many as fit on wider areas", () => {
         assert.equal(dockCapacity(390), 1);
-        assert.equal(dockCapacity(900), 2);
-        assert.equal(dockCapacity(1350), 3);
-        assert.equal(dockCapacity(1350, true), 2);
+        assert.equal(dockCapacity(700), 1);
+        assert.equal(dockCapacity(720), 2);
+        assert.equal(dockCapacity(1100), 3);
+    });
+    it("shrinks windows to share the area, never below the minimum", () => {
+        assert.equal(dockSlotWidth(1400, 2), 420);
+        assert.equal(dockSlotWidth(720, 2), 342);
+        assert.equal(dockSlotWidth(600, 2), 340);
     });
 });
 

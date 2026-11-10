@@ -12,21 +12,34 @@ export interface DockEntry {
     touched: number;
 }
 
+/** Preferred and smallest width of one conversation window; windows shrink to fit more side by side. */
 export const DOCK_WINDOW_WIDTH = 420;
+export const DOCK_WINDOW_MIN_WIDTH = 340;
 export const DOCK_GAP = 12;
 export const DOCK_TRAY_WIDTH = 64;
 export const DOCK_MAX_ENTRIES = 12;
-const MOBILE_WIDTH = 768;
+/** Below this the board area is a phone: one conversation at a time, full screen. */
+export const DOCK_MOBILE_WIDTH = 640;
 
-/** How many standard windows fit side by side in the board area. */
-export function dockCapacity(width: number, hasTray = false) {
-    if (width < MOBILE_WIDTH) return 1;
-    const usable = width - DOCK_GAP - (hasTray ? DOCK_TRAY_WIDTH : 0);
-    return Math.max(1, Math.floor(usable / (DOCK_WINDOW_WIDTH + DOCK_GAP)));
+export const isDockMobile = (width: number) => width < DOCK_MOBILE_WIDTH;
+
+/** How many windows fit side by side in the board area (the minimized tray floats and takes no slot). */
+export function dockCapacity(width: number) {
+    if (isDockMobile(width)) return 1;
+    return Math.max(1, Math.floor((width - DOCK_GAP) / (DOCK_WINDOW_MIN_WIDTH + DOCK_GAP)));
+}
+
+/** Width of one slot when `slots` windows share the board area. */
+export function dockSlotWidth(width: number, slots: number) {
+    const share = Math.floor((width - DOCK_GAP * (slots + 1)) / Math.max(1, slots));
+    return Math.max(DOCK_WINDOW_MIN_WIDTH, Math.min(DOCK_WINDOW_WIDTH, share));
 }
 
 /** An expanded window takes two slots when there is room for two. */
 const slots = (entry: DockEntry, capacity: number) => entry.expanded && capacity >= 2 ? 2 : 1;
+
+export const usedSlots = (list: DockEntry[], capacity: number) =>
+    list.filter(entry => !entry.minimized).reduce((total, entry) => total + (entry.expanded && capacity >= 2 ? 2 : 1), 0);
 
 export const visibleEntries = (list: DockEntry[]) => list.filter(entry => !entry.minimized);
 export const minimizedEntries = (list: DockEntry[]) => list.filter(entry => entry.minimized);

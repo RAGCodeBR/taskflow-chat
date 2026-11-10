@@ -7,7 +7,7 @@ import { ChatAvatar } from "./chat-avatar";
 import type { BoardChat } from "./conversation-board";
 import { cn } from "@/lib/utils";
 import {
-    DOCK_GAP, DOCK_TRAY_WIDTH, DOCK_WINDOW_WIDTH, clearFocusInDock, closeInDock, dockCapacity, fitDock, focusInDock,
+    DOCK_GAP, DOCK_TRAY_WIDTH, clearFocusInDock, closeInDock, dockCapacity, dockSlotWidth, fitDock, focusInDock, isDockMobile, usedSlots,
     minimizeInDock, minimizedEntries, openInDock, parseDock, renameInDock, serializeDock, toggleExpandInDock,
     visibleEntries, type DockEntry,
 } from "@/lib/chat-dock";
@@ -61,15 +61,17 @@ export function ConversationDock({ sessionId, dock, chats, unread, onFocusDone }
     onFocusDone: (found: boolean) => void;
 }) {
     const area = useRef<HTMLDivElement>(null);
-    const [mobile, setMobile] = useState(false);
+    const [areaWidth, setAreaWidth] = useState(0);
+    const mobile = areaWidth > 0 && isDockMobile(areaWidth);
     const { setCapacity } = dock;
     useLayoutEffect(() => {
-        const element = area.current;
+        // Measure the board area, not the dock: on phones the dock itself becomes full screen.
+        const element = area.current?.parentElement;
         if (!element) return;
         const measure = () => {
             const width = element.getBoundingClientRect().width;
-            setMobile(width < 768);
-            setCapacity(dockCapacity(width, true));
+            setAreaWidth(width);
+            setCapacity(dockCapacity(width));
         };
         measure();
         const observer = new ResizeObserver(measure);
@@ -84,6 +86,8 @@ export function ConversationDock({ sessionId, dock, chats, unread, onFocusDone }
     };
     const visible = visibleEntries(dock.entries);
     const minimized = minimizedEntries(dock.entries);
+    const slotWidth = dockSlotWidth(areaWidth, Math.max(1, usedSlots(dock.entries, dockCapacity(areaWidth))));
+    const windowsWidth = visible.reduce((total, entry) => total + (entry.expanded ? slotWidth * 2 + DOCK_GAP : slotWidth) + DOCK_GAP, 0);
     const active = visible.slice().sort((a, b) => b.touched - a.touched)[0]?.jid;
     const totalUnread = (entry: DockEntry) => unread[chatFor(entry.jid)?.jid || entry.jid] || 0;
 
@@ -113,7 +117,7 @@ export function ConversationDock({ sessionId, dock, chats, unread, onFocusDone }
         {visible.map(entry => {
             const name = nameFor(entry);
             const expanded = entry.expanded && !mobile;
-            const width = mobile ? undefined : expanded ? DOCK_WINDOW_WIDTH * 2 + DOCK_GAP : DOCK_WINDOW_WIDTH;
+            const width = mobile ? undefined : expanded ? slotWidth * 2 + DOCK_GAP : slotWidth;
             return <section key={entry.jid} aria-label={`Conversa com ${name}`} data-active={entry.jid === active ? "true" : undefined}
                 onPointerDownCapture={() => dock.focus(entry.jid)} onFocusCapture={() => dock.focus(entry.jid)}
                 className={cn("wa-dock-window pointer-events-auto flex min-h-0 min-w-0 flex-col overflow-hidden bg-background",
@@ -133,6 +137,8 @@ export function ConversationDock({ sessionId, dock, chats, unread, onFocusDone }
                     </>} />
             </section>;
         })}
-        {(!mobile || !visible.length) && tray && <div className={cn("pointer-events-none flex", mobile ? "fixed bottom-4 right-4 z-40" : "items-end")}>{tray}</div>}
+        {/* The tray floats over the board, just left of the open windows, so it never takes a window's place. */}
+        {(!mobile || !visible.length) && tray && <div className={cn("pointer-events-none absolute flex items-end", mobile ? "bottom-4 right-4" : "bottom-2")}
+            style={mobile ? undefined : { right: 8 + windowsWidth }}>{tray}</div>}
     </div>;
 }
