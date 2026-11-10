@@ -25,8 +25,10 @@ export function newIncomingMessages(messages: IncomingMessage[], seen: Set<strin
     });
 }
 
-export function useConversationAlerts({ sessionId, chats, selectedJid, onSelect, onIncoming }: {
-    sessionId: string; chats: BoardChat[]; selectedJid?: string;
+export function useConversationAlerts({ sessionId, chats, selectedJids, onSelect, onIncoming }: {
+    sessionId: string; chats: BoardChat[];
+    /** Conversations on screen right now (the list view has one; the Kanban can show several windows). */
+    selectedJids: string[];
     onSelect: (jid: string, name?: string) => void;
     onIncoming: (messages: IncomingMessage[]) => void;
 }) {
@@ -48,8 +50,9 @@ export function useConversationAlerts({ sessionId, chats, selectedJid, onSelect,
         toast.dismiss(alertToastId(sessionId, jid));
         alert.notification?.close();
     }, [sessionId]);
-    const latest = useRef({ chats, selectedJid, onSelect, onIncoming, sound, desktop });
-    latest.current = { chats, selectedJid, onSelect, onIncoming, sound, desktop };
+    const latest = useRef({ chats, selectedJids, onSelect, onIncoming, sound, desktop });
+    latest.current = { chats, selectedJids, onSelect, onIncoming, sound, desktop };
+    const openKey = selectedJids.join("|");
     const resolve = (jid: string) => latest.current.chats.find(c => c.jid === jid || c.aliases?.includes(jid));
     const markRead = useCallback((jid: string) => {
         setUnread(previous => {
@@ -81,13 +84,13 @@ export function useConversationAlerts({ sessionId, chats, selectedJid, onSelect,
     useEffect(() => { if (ready) try { localStorage.setItem(`chat-unread:${sessionId}`, JSON.stringify(unread)); } catch {} }, [unread, sessionId, ready]);
     useEffect(() => {
         const readOpen = () => {
-            if (document.visibilityState === 'visible' && document.hasFocus() && latest.current.selectedJid) markRead(latest.current.selectedJid);
+            if (document.visibilityState === 'visible' && document.hasFocus()) for (const jid of latest.current.selectedJids) markRead(jid);
         };
         readOpen();
         window.addEventListener('focus', readOpen);
         document.addEventListener('visibilitychange', readOpen);
         return () => { window.removeEventListener('focus', readOpen); document.removeEventListener('visibilitychange', readOpen); };
-    }, [selectedJid, markRead]);
+    }, [openKey, markRead, ready]);
     const unlockAudio = useCallback(() => {
         if (!audio.current) audio.current = new AudioContext();
         void audio.current.resume().catch(() => {});
@@ -123,7 +126,8 @@ export function useConversationAlerts({ sessionId, chats, selectedJid, onSelect,
             latest.current.onIncoming(incoming);
             const hidden = incoming.filter(message => {
                 const jid = resolve(message.remoteJid)?.jid || message.remoteJid;
-                return jid !== latest.current.selectedJid || document.visibilityState !== 'visible' || !document.hasFocus();
+                const onScreen = latest.current.selectedJids.some(selected => selected === jid || resolve(selected)?.jid === jid);
+                return !onScreen || document.visibilityState !== 'visible' || !document.hasFocus();
             });
             if (!hidden.length) return;
             setUnread(previous => {

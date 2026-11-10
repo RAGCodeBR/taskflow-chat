@@ -1,7 +1,7 @@
 "use client";
 import { isChatSessionEvent } from "@/lib/chat-session-events";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { MAX_CHAT_UPLOAD_BYTES, MAX_CHAT_UPLOAD_MB } from "@/lib/upload-limits";
 import { AttachmentPreview } from "./attachment-preview";
 import { MessageImage } from "./message-image";
@@ -14,7 +14,7 @@ import { messageFallback } from "@/lib/message-display";
 import { messageLinkParts } from "@/lib/message-links";
 import { ChatAvatar } from "./chat-avatar";
 import { Button } from "@/components/ui/button";
-import { Send, Paperclip, ArrowLeft, FileText, Image as ImageIcon, Music, Video, Download, ArrowDown, CornerUpLeft, Copy, Trash2, Info, X, Sparkles, Smile, Star, StarOff, Pin, PinOff, Archive, Forward, Contact, Clock, CheckCheck, BellRing } from "lucide-react";
+import { Send, Paperclip, ArrowLeft, FileText, Image as ImageIcon, Music, Video, Download, ArrowDown, CornerUpLeft, Copy, Trash2, Info, X, Sparkles, Smile, Star, StarOff, Pin, PinOff, Archive, Forward, Contact, Clock, CheckCheck, BellRing, MoreVertical } from "lucide-react";
 import { usePending, setMessageLater, ReminderDialog, finishReminder } from "./follow-ups";
 import { ChatPickerDialog } from "./chat-picker-dialog";
 import { MAX_FORWARD_TARGETS } from "@/lib/forward-message";
@@ -76,9 +76,14 @@ interface ChatWindowProps {
     jid: string;
     name?: string;
     onBack?: () => void;
+    onClose?: () => void;
     /** Scroll to and highlight this message once loaded (from the favorites list). */
     focusKeyId?: string;
     onFocusDone?: (found: boolean) => void;
+    /** Extra window controls (minimize, expand) shown before the close button. */
+    headerActions?: ReactNode;
+    /** Narrow window: secondary header actions move into a menu. */
+    compact?: boolean;
 }
 
 const PAGE_LIMIT = 50;
@@ -187,16 +192,26 @@ function ContextMenu({ state, onClose, onReply, onForward, onDelete, onInfo, sta
 export function ChatWindow(props: ChatWindowProps) {
     if (props.jid.endsWith("@broadcast") || props.jid.endsWith("@newsletter")) return <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
         <p className="text-sm text-muted-foreground">Status e canais não fazem parte das conversas de atendimento. Volte para a lista ou para o quadro.</p>
-        {props.onBack && <Button variant="outline" onClick={props.onBack}>Voltar às conversas</Button>}
+        {(props.onBack || props.onClose) && <Button variant="outline" onClick={props.onClose || props.onBack}>Voltar às conversas</Button>}
     </div>;
     return <ChatConversationWindow key={`${props.sessionId}:${props.jid}`} {...props} />;
 }
-function ChatConversationWindow({ sessionId, jid, name, onBack, focusKeyId, onFocusDone }: ChatWindowProps) {
+function ChatConversationWindow({ sessionId, jid, name, onBack, onClose, focusKeyId, onFocusDone, headerActions, compact }: ChatWindowProps) {
     const t = useTranslations("chat");
     const tCommon = useTranslations("common");
     const [infoMessage,setInfoMessage] = useState<Message|null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
+    const draftKey = `chat-draft:${sessionId}:${jid}`;
     const [input, setInput] = useState("");
+    const [draftReady, setDraftReady] = useState(false);
+    useEffect(() => {
+        try { setInput(sessionStorage.getItem(draftKey) || ""); } catch {}
+        setDraftReady(true);
+    }, [draftKey]);
+    useEffect(() => {
+        if (!draftReady) return;
+        try { if (input) sessionStorage.setItem(draftKey, input); else sessionStorage.removeItem(draftKey); } catch {}
+    }, [draftKey, input, draftReady]);
     const scrollRef = useRef<HTMLDivElement>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
     const [people, setPeople] = useState<MentionPerson[]>([]);
@@ -289,20 +304,38 @@ function ChatConversationWindow({ sessionId, jid, name, onBack, focusKeyId, onFo
         bottomRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "end" });
     }, []);
 
-    const fetchMessages = useCallback(async (before?: string) => {
+    const fetchMessages = useCallback(async (before?: string, reconcile = false) => {
         try {
-            if (!before) setLoading(true);
-            else setLoadingMore(true);
+            if (!before && !reconcile) setLoading(true);
+            else if (before) setLoadingMore(true);
             const data: any = await getChatMessages(sessionId, jid, PAGE_LIMIT, before);
-            if (!before) { setMessages(data.messages || []); setAutoScroll(true); }
+            if (!before && reconcile) setMessages(prev => mergeConversationMessages(prev, data.messages || []));
+            else if (!before) { setMessages(data.messages || []); setAutoScroll(true); }
             else if (data.messages?.length > 0) setMessages(prev => [...(data.messages || []), ...prev]);
-            setHasMore(data.hasMore);
-            if (data.messages?.length > 0) setOldestTimestamp(data.messages[0].timestamp);
+            if (!reconcile) {
+                setHasMore(data.hasMore);
+                if (data.messages?.length > 0) setOldestTimestamp(data.messages[0].timestamp);
+            }
         } catch (e) { console.error("Failed to load messages", e); }
         finally { setLoading(false); setLoadingMore(false); }
     }, [sessionId, jid]);
 
     useEffect(() => { setMessages([]); setOldestTimestamp(null); setHasMore(false); fetchMessages(); }, [fetchMessages]);
+    useEffect(() => {
+        let lastRefresh = 0;
+        const refresh = () => {
+            if (document.visibilityState !== "visible" || !navigator.onLine || Date.now() - lastRefresh < 4000) return;
+            lastRefresh = Date.now();
+            void fetchMessages(undefined, true);
+        };
+        const socket = getSocket();
+        socket?.on("connect", refresh);
+        window.addEventListener("focus", refresh);
+        window.addEventListener("online", refresh);
+        document.addEventListener("visibilitychange", refresh);
+        const timer = window.setInterval(refresh, 60000);
+        return () => { socket?.off("connect", refresh); window.removeEventListener("focus", refresh); window.removeEventListener("online", refresh); document.removeEventListener("visibilitychange", refresh); window.clearInterval(timer); };
+    }, [fetchMessages, getSocket]);
 
     // Auto focus input when chat changes and finished loading
     useEffect(() => {
@@ -440,6 +473,7 @@ function ChatConversationWindow({ sessionId, jid, name, onBack, focusKeyId, onFo
     const [sending, setSending] = useState(false);
     const handleSend = async () => {
         if (!input.trim() || sendingRef.current) return;
+        const submitted = input;
         sendingRef.current = true; setSending(true);
         try {
             const payload = mentionPayload(input, chosenMentions);
@@ -453,7 +487,7 @@ function ChatConversationWindow({ sessionId, jid, name, onBack, focusKeyId, onFo
                 setAutoScroll(true);
             } else await fetchMessages();
             setChosenMentions([]);
-            setInput("");
+            setInput(current => current === submitted ? "" : current);
             setReplyingTo(null);
             setAutoScroll(true);
         } catch (e: any) { toast.error(e.message || "Failed to send"); }
@@ -491,12 +525,13 @@ function ChatConversationWindow({ sessionId, jid, name, onBack, focusKeyId, onFo
         return () => window.removeEventListener("keydown", handler);
     }, [replyingTo]);
 
-    const processFileUpload = async (file: File, explicitType?: string, caption = "", onProgress?: (percent: number) => void): Promise<boolean> => {
+    const processFileUpload = async (file: File, explicitType?: string, caption = "", onProgress?: (percent: number) => void, mentions: string[] = []): Promise<boolean> => {
         if (!file.size) { toast.error("O arquivo está vazio."); return false; }
         if (file.size > MAX_CHAT_UPLOAD_BYTES) { toast.error(`O arquivo deve ter no máximo ${MAX_CHAT_UPLOAD_MB} MB.`); return false; }
         const formData = new FormData();
         formData.append("file", file);
         formData.append("caption", caption);
+        formData.append("mentions", JSON.stringify(mentions));
         let type = explicitType;
         if (!type || type === '*') {
             if (file.type.startsWith('image/')) type = 'image';
@@ -552,6 +587,7 @@ function ChatConversationWindow({ sessionId, jid, name, onBack, focusKeyId, onFo
         setContextMenu({ x: e.clientX, y: e.clientY, msg });
     }, []);
 
+    const [moreOpen, setMoreOpen] = useState(false);
     const [contactName,setContactName] = useState<string | null>(null);
     const [contactPhone,setContactPhone] = useState<string | null>(null);
     const displayName = contactName || name || jid.split('@')[0];
@@ -570,7 +606,7 @@ function ChatConversationWindow({ sessionId, jid, name, onBack, focusKeyId, onFo
                 if (files.length) selectAttachments(files);
             }}
         >
-            {attachment && attachment.session === sessionId && attachment.jid === jid && <AttachmentPreview key={`${sessionId}:${jid}:${attachment.files.map(file => `${file.name}:${file.lastModified}`).join('|')}`} files={attachment.files} onCancel={() => setAttachment(null)} onSend={(file, caption, onProgress) => processFileUpload(file, attachment.type, caption, onProgress)} />}
+            {attachment && attachment.session === sessionId && attachment.jid === jid && <AttachmentPreview key={`${sessionId}:${jid}:${attachment.files.map(file => `${file.name}:${file.lastModified}`).join('|')}`} files={attachment.files} people={jid.endsWith('@g.us') ? people : []} onCancel={() => setAttachment(null)} onSend={(file, caption, mentions, onProgress) => processFileUpload(file, attachment.type, caption, onProgress, mentions)} />}
             {infoMessage && <MessageInfo sessionId={sessionId} jid={jid} message={infoMessage} onClose={()=>setInfoMessage(null)} />}
             {/* Context menu */}
             {contextMenu && (
@@ -653,10 +689,27 @@ function ChatConversationWindow({ sessionId, jid, name, onBack, focusKeyId, onFo
                     <h3 className="text-sm font-semibold text-foreground truncate">{displayName}</h3>
                     <p className="text-[10px] text-muted-foreground truncate">{jid.endsWith("@g.us") ? jid : contactPhone || (phoneFromJid(jid) ? formatContactPhone(phoneFromJid(jid)!) : "Telefone ainda não sincronizado")}</p>
                 </div>
-                <button type="button" onClick={async () => { try { await setChatArchived(sessionId, jid, true); toast.success('Conversa arquivada. Ela fica em Arquivadas.'); } catch { toast.error('Não foi possível arquivar a conversa'); } }} title="Arquivar conversa" aria-label="Arquivar conversa" className="shrink-0 rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"><Archive className="h-4 w-4" /></button>
-                <button type="button" onClick={() => setReminderOpen(true)} title={reminder ? "Editar lembrete" : "Criar lembrete para esta conversa"} aria-label={reminder ? "Editar lembrete desta conversa" : "Criar lembrete para esta conversa"} className={cn("shrink-0 rounded-full p-2 hover:bg-muted", reminder ? "text-amber-500" : "text-muted-foreground hover:text-foreground")}><BellRing className="h-4 w-4" /></button>
-                <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('wa:open-starred'))} title="Mensagens favoritas" aria-label="Abrir mensagens favoritas" className="shrink-0 rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"><Star className="h-4 w-4" /></button>
+                {(() => {
+                    const archive = async () => { try { await setChatArchived(sessionId, jid, true); toast.success('Conversa arquivada. Ela fica em Arquivadas.'); } catch { toast.error('Não foi possível arquivar a conversa'); } };
+                    const openStarred = () => window.dispatchEvent(new CustomEvent('wa:open-starred'));
+                    if (!compact) return <>
+                        <button type="button" onClick={archive} title="Arquivar conversa" aria-label="Arquivar conversa" className="shrink-0 rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"><Archive className="h-4 w-4" /></button>
+                        <button type="button" onClick={() => setReminderOpen(true)} title={reminder ? "Editar lembrete" : "Criar lembrete para esta conversa"} aria-label={reminder ? "Editar lembrete desta conversa" : "Criar lembrete para esta conversa"} className={cn("shrink-0 rounded-full p-2 hover:bg-muted", reminder ? "text-amber-500" : "text-muted-foreground hover:text-foreground")}><BellRing className="h-4 w-4" /></button>
+                        <button type="button" onClick={openStarred} title="Mensagens favoritas" aria-label="Abrir mensagens favoritas" className="shrink-0 rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"><Star className="h-4 w-4" /></button>
+                    </>;
+                    const item = "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-muted";
+                    return <Popover open={moreOpen} onOpenChange={setMoreOpen}>
+                        <PopoverTrigger asChild><button type="button" title="Mais opções" aria-label="Mais opções da conversa" className="relative shrink-0 rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"><MoreVertical className="h-4 w-4" />{reminder && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-500" />}</button></PopoverTrigger>
+                        <PopoverContent align="end" className="wa-more-menu w-56 p-1">
+                            <button type="button" className={item} onClick={() => { setMoreOpen(false); setReminderOpen(true); }}><BellRing className={cn("h-4 w-4", reminder ? "text-amber-500" : "text-muted-foreground")} />{reminder ? "Editar lembrete" : "Criar lembrete"}</button>
+                            <button type="button" className={item} onClick={() => { setMoreOpen(false); openStarred(); }}><Star className="h-4 w-4 text-muted-foreground" />Mensagens favoritas</button>
+                            <button type="button" className={item} onClick={() => { setMoreOpen(false); void archive(); }}><Archive className="h-4 w-4 text-muted-foreground" />Arquivar conversa</button>
+                        </PopoverContent>
+                    </Popover>;
+                })()}
                 {!jid.endsWith("@g.us") && <ContactTools sessionId={sessionId} jid={jid} name={displayName} onResolved={contact=>{setContactName(contact.name);setContactPhone(contact.phoneFormatted)}} />}
+                {headerActions}
+                {onClose && <button type="button" onClick={onClose} title="Voltar ao quadro" aria-label="Fechar conversa e voltar ao Kanban" className="shrink-0 rounded-full border border-border/50 p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><X className="h-4 w-4" /></button>}
             </div>
             {reminder && <div role="note" className="flex shrink-0 items-start gap-2 border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-900 dark:text-amber-100">
                 <BellRing className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
@@ -687,6 +740,8 @@ function ChatConversationWindow({ sessionId, jid, name, onBack, focusKeyId, onFo
                     )}
                     {messages.map((msg, idx) => {
                         const showDate = idx === 0 || getDateLabel(msg.timestamp) !== getDateLabel(messages[idx - 1].timestamp);
+                        const previous = messages[idx - 1];
+                        const tail = showDate || !previous || previous.fromMe !== msg.fromMe || (!msg.fromMe && (previous.senderJid || previous.pushName) !== (msg.senderJid || msg.pushName));
                         return (
                             <div key={msg.keyId} id={`msg-${msg.keyId}`}>
                                 {showDate && (
@@ -708,7 +763,7 @@ function ChatConversationWindow({ sessionId, jid, name, onBack, focusKeyId, onFo
                                     <div className={cn(
                                         "flex flex-col max-w-[85%] sm:max-w-[70%] rounded-2xl px-3 py-2 shadow-sm overflow-hidden cursor-context-menu",
                                         msg.fromMe ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-background border border-border/40 rounded-bl-sm"
-                                    )} data-key-id={msg.keyId} data-participant-bubble={!msg.fromMe && jid.endsWith("@g.us") ? "true" : undefined} style={!msg.fromMe && jid.endsWith("@g.us") ? {"--participant-hue": participantHue(people.find(person=>person.jid===msg.senderJid || person.aliases?.includes(msg.senderJid || ""))?.jid || msg.senderJid || msg.pushName || "unknown")} as React.CSSProperties : undefined} onContextMenu={(e) => handleContextMenu(e, msg)}>
+                                    )} data-key-id={msg.keyId} data-tail={tail ? "true" : undefined} data-participant-bubble={!msg.fromMe && jid.endsWith("@g.us") ? "true" : undefined} style={!msg.fromMe && jid.endsWith("@g.us") ? {"--participant-hue": participantHue(people.find(person=>person.jid===msg.senderJid || person.aliases?.includes(msg.senderJid || ""))?.jid || msg.senderJid || msg.pushName || "unknown")} as React.CSSProperties : undefined} onContextMenu={(e) => handleContextMenu(e, msg)}>
                                         {!msg.fromMe && jid.endsWith("@g.us") && (
                                             <span className="text-[10px] font-semibold text-primary block mb-0.5">{messageSenderName(msg, people)}</span>
                                         )}

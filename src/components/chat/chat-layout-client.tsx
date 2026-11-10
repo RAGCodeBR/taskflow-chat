@@ -11,9 +11,9 @@ import { useConversationAlerts } from "./use-conversation-alerts";
 import { ChatList } from "./chat-list";
 import { ChatWindow } from "./chat-window";
 import { ConversationBoard, type BoardData } from "./conversation-board";
+import { ConversationDock, useConversationDock } from "./conversation-dock";
 import { type ChatStageId } from "@/lib/chat-stages";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { MessageCircle, List, Columns3, RefreshCw, X, Volume2, VolumeX, Bell, BellOff, Pin, Star, Archive, BellRing } from "lucide-react";
 import { PendingPanel, usePending } from "./follow-ups";
 import { StarredPanel } from "./starred-panel";
@@ -76,9 +76,30 @@ export function ChatLayoutClient({ sessionId, initialJid }: ChatLayoutClientProp
         const timer = setInterval(() => { if (!pendingRef.current.size) loadBoard(); }, 30_000);
         return () => { clearInterval(timer); generation.current++; };
     }, [loadBoard, view]);
+    useEffect(() => {
+        let lastRefresh = 0;
+        const refresh = () => {
+            if (document.visibilityState !== "visible" || !navigator.onLine || pendingRef.current.size || Date.now() - lastRefresh < 4000) return;
+            lastRefresh = Date.now();
+            void loadBoard();
+        };
+        window.addEventListener("focus", refresh);
+        window.addEventListener("online", refresh);
+        document.addEventListener("visibilitychange", refresh);
+        return () => { window.removeEventListener("focus", refresh); window.removeEventListener("online", refresh); document.removeEventListener("visibilitychange", refresh); };
+    }, [loadBoard]);
 
+    // Kanban: conversations open as side-by-side windows. Anything that selects a chat
+    // (cards, alerts, favorites, pending items) lands in the dock while the board is shown.
+    const dock = useConversationDock(sessionId);
+    const { open: openInDock, rename: renameInDock } = dock;
+    useEffect(() => {
+        if (view !== "kanban" || !selectedChat) return;
+        openInDock(selectedChat);
+        setSelectedChat(null);
+    }, [view, selectedChat, openInDock]);
     const alerts = useConversationAlerts({
-        sessionId, chats: data.chats, selectedJid: selectedChat?.jid,
+        sessionId, chats: data.chats, selectedJids: view === "kanban" ? dock.visibleJids : selectedChat ? [selectedChat.jid] : [],
         onSelect: (jid, name) => { setSelectedChat({ jid, name }); },
         onIncoming: messages => {
             setData(current => {
@@ -192,11 +213,12 @@ export function ChatLayoutClient({ sessionId, initialJid }: ChatLayoutClientProp
             setLoading(false);
             setData(current=>({...current,chats:current.chats.map(chat=>chat.jid===contact.jid || chat.aliases?.includes(contact.jid) ? {...chat,name:contact.name} : chat)}));
             setSelectedChat(current=>current && current.jid===contact.jid?{...current,name:contact.name}:current);
+            renameInDock(contact.jid, contact.name);
             setListVersion(v=>v+1);
         };
         window.addEventListener(CONTACT_UPDATED_EVENT,update);
         return()=>window.removeEventListener(CONTACT_UPDATED_EVENT,update);
-    },[sessionId]);
+    },[sessionId, renameInDock]);
 
     // Favorites panel: opened from the toolbar or from a chat header (wa:open-starred).
     const [starredOpen, setStarredOpen] = useState(false);
@@ -212,15 +234,16 @@ export function ChatLayoutClient({ sessionId, initialJid }: ChatLayoutClientProp
     // (here, from the card menu, or on the phone), and close it if it was open.
     const [archivedOpen, setArchivedOpen] = useState(false);
     const loadBoardRef = useRef<() => void>(() => {});
+    const { close: closeDockWindow } = dock;
     useEffect(() => { loadBoardRef.current = loadBoard; }, [loadBoard]);
     useEffect(() => {
         const changed = (event: Event) => {
             const detail = (event as CustomEvent).detail as { jid?: string; archived?: boolean } | undefined;
-            if (detail?.archived) setSelectedChat(current => current?.jid === detail.jid ? null : current);
+            if (detail?.archived) { setSelectedChat(current => current?.jid === detail.jid ? null : current); if (detail.jid) closeDockWindow(detail.jid); }
             loadBoardRef.current(); setListVersion(v => v + 1);
         };
         window.addEventListener("wa:archived-changed", changed); return () => window.removeEventListener("wa:archived-changed", changed);
-    }, []);
+    }, [closeDockWindow]);
     useEffect(() => {
         const socket = getSocket(); if (!socket) return;
         const handler = (_changes: unknown, source: unknown) => { if (isChatSessionEvent(sessionId, source)) { loadBoardRef.current(); setListVersion(v => v + 1); } };
@@ -267,27 +290,12 @@ export function ChatLayoutClient({ sessionId, initialJid }: ChatLayoutClientProp
             </div>
             {loadError && <div role="alert" className="px-3 py-2 text-sm text-destructive">Não foi possível atualizar o quadro e as etiquetas. Use o botão de atualizar para tentar novamente.</div>}
             {view === "kanban" ? <div className="flex flex-1 min-h-0 min-w-0 relative">
-                <ConversationBoard reminders={followUps.reminders} compactFiltersTop toolbarTarget={boardToolbar} kind={filters.kind} search={filters.search} onKindChange={kind => updateFilters({ kind })} onSearchChange={search => updateFilters({ search })} sessionId={sessionId} data={data} labelId={labelId} columnId={columnId} unread={alerts.unread} onAddColumn={column => { generation.current++; setData(current=>({...current,columns:[...(current.columns || []),column]})); }} onColumnsOrder={ids=>{generation.current++;setData(current=>({...current,columns:ids.map(id=>current.columns!.find(c=>c.id===id)!)}));}} onLabelsChange={loadBoard} onCreateLabel={label => setData(current => ({ ...current, labels: [...current.labels.filter(l => l.id !== label.id), label] }))} loading={loading} pending={pending} onMove={moveChat} onSelect={handleSelectChat} onSaveColumn={column => {
+                <ConversationBoard reminders={followUps.reminders} compactFiltersTop toolbarTarget={boardToolbar} kind={filters.kind} search={filters.search} onKindChange={kind => updateFilters({ kind })} onSearchChange={search => updateFilters({ search })} sessionId={sessionId} data={data} labelId={labelId} columnId={columnId} unread={alerts.unread} onAddColumn={column => { generation.current++; setData(current=>({...current,columns:[...(current.columns || []),column]})); }} onDeleteColumn={stage => { generation.current++; setData(current => ({ ...current, columns: (current.columns || []).filter(column => column.id !== stage), stages: current.stages.map(item => item.stage === stage ? { ...item, stage: 'new' } : item) })); if (columnId === stage) setColumnId(''); }} onColumnsOrder={ids=>{generation.current++;setData(current=>({...current,columns:ids.map(id=>current.columns!.find(c=>c.id===id)!)}));}} onLabelsChange={loadBoard} onCreateLabel={label => setData(current => ({ ...current, labels: [...current.labels.filter(l => l.id !== label.id), label] }))} loading={loading} pending={pending} onMove={moveChat} onSelect={handleSelectChat} onSaveColumn={column => {
                     generation.current++;
                     setLoading(false);
                     setData(current => ({ ...current, columns: (current.columns || []).map(c => c.id === column.id ? column : c) }));
                 }} />
-                <Dialog open={!!selectedChat} onOpenChange={open => { if (!open) handleBack(); }}>
-                    <DialogContent showCloseButton={false} className="flex flex-col gap-0 p-0 overflow-hidden w-[calc(100vw-1rem)] max-w-none sm:max-w-[1600px] h-[calc(100dvh-1rem)] max-h-none rounded-xl" aria-describedby="kanban-chat-description"
-                        // The favorites panel and message alerts sit on top of this dialog; using them must not close the chat behind it.
-                        onInteractOutside={event => { if ((event.target as HTMLElement | null)?.closest?.("[data-starred-panel],[data-sonner-toaster]")) event.preventDefault(); }}>
-                        <div className="flex items-center justify-between gap-3 px-4 py-2 border-b shrink-0 bg-background">
-                            <div className="min-w-0">
-                                <DialogTitle className="text-sm font-semibold">Atendimento pelo Kanban</DialogTitle>
-                                <DialogDescription id="kanban-chat-description" className="text-xs mt-1">Leia e responda aqui. Ao fechar, você volta ao quadro.</DialogDescription>
-                            </div>
-                            <DialogClose asChild><button type="button" className="flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-sm hover:bg-muted"><span aria-hidden="true">←</span> Voltar ao quadro</button></DialogClose>
-                        </div>
-                        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-                            {selectedChat && <ChatWindow key={selectedChat.jid} sessionId={sessionId} jid={selectedChat.jid} name={selectedChat.name} focusKeyId={selectedChat.focusKeyId} onFocusDone={focusDone} />}
-                        </div>
-                    </DialogContent>
-                </Dialog>
+                <ConversationDock sessionId={sessionId} dock={dock} chats={data.chats} unread={alerts.unread} onFocusDone={focusDone} />
             </div> : <div className="flex flex-1 min-h-0 overflow-hidden">
             {/* Chat List Panel */}
             <div className={`w-full md:w-80 lg:w-[340px] border-r border-border/30 overflow-hidden shrink-0 flex flex-col
