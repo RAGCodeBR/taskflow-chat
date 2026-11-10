@@ -33,6 +33,11 @@ export async function proxy(request: NextRequest) {
             return NextResponse.next();
         }
 
+        // MCP connector: authenticated by the API key in the URL inside the route itself
+        if (pathname.startsWith("/api/mcp/")) {
+            return NextResponse.next();
+        }
+
         // Check for API key in header
         const apiKey = request.headers.get("x-api-key");
         if (apiKey) {
