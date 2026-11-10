@@ -18,10 +18,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         try { form = await request.formData(); }
         catch { return NextResponse.json({ message: "Não foi possível ler o anexo. Selecione o arquivo novamente." }, { status: 400 }); }
         const file = form.get("file"), jid = form.get("jid"), type = form.get("type"), caption = form.get("caption");
+        let mentions: string[] = [];
+        try {
+            const parsed = JSON.parse(String(form.get("mentions") || "[]"));
+            if (!Array.isArray(parsed) || parsed.length > 50 || parsed.some(id => typeof id !== "string" || !/^\d+@(lid|s\.whatsapp\.net)$/.test(id))) throw new Error();
+            mentions = [...new Set(parsed)];
+        } catch { return NextResponse.json({ message: "Menções inválidas no anexo." }, { status: 400 }); }
         if (!(file instanceof File) || !file.size || typeof jid !== "string" || !/^[-\d]+@(s\.whatsapp\.net|lid|g\.us|newsletter)$/.test(jid) || typeof type !== "string" || !["image", "video", "audio", "voice", "document", "sticker"].includes(type)) {
             return NextResponse.json({ message: "Selecione um arquivo válido e uma conversa para enviar." }, { status: 400 });
         }
         if (file.size > MAX_CHAT_UPLOAD_BYTES) return tooLarge();
+        if (mentions.length && !jid.endsWith("@g.us")) return NextResponse.json({ message: "Menções são permitidas apenas em grupos." }, { status: 400 });
         const instance = waManager.getInstance(sessionId);
         if (!instance?.socket || instance.status !== "CONNECTED") return NextResponse.json({ message: "WhatsApp desconectado. Aguarde a conexão e tente novamente." }, { status: 409 });
         const original = Buffer.from(await file.arrayBuffer());
@@ -37,7 +44,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             }
         }
         if (media.buffer.length > MAX_CHAT_UPLOAD_BYTES) return tooLarge();
-        const result = await ChatService.sendMediaMessage(sessionId, jid, media.buffer, type, media.mimeType, media.fileName, typeof caption === "string" ? caption : "");
+        const result = await ChatService.sendMediaMessage(sessionId, jid, media.buffer, type, media.mimeType, media.fileName, typeof caption === "string" ? caption : "", mentions);
         return NextResponse.json({ success: true, message: result.localMessage });
     } catch (error) {
         console.error("Chat attachment send failed", error);

@@ -29,7 +29,7 @@ export interface BoardData {
     stages: { chatJid: string; stage: string }[];
 }
 
-export function ConversationBoard({ reminders = [], sessionId, data, labelId, loading, pending, onMove, onSelect, onSaveColumn, columnId = "", onCreateLabel, onLabelsChange, onAddColumn, onColumnsOrder, unread = {}, kind = "all", search = "", onKindChange, onSearchChange, toolbarTarget, compactFiltersTop = false }: {
+export function ConversationBoard({ reminders = [], sessionId, data, labelId, loading, pending, onMove, onSelect, onSaveColumn, onDeleteColumn, columnId = "", onCreateLabel, onLabelsChange, onAddColumn, onColumnsOrder, unread = {}, kind = "all", search = "", onKindChange, onSearchChange, toolbarTarget, compactFiltersTop = false }: {
     toolbarTarget?: HTMLElement | null;
     compactFiltersTop?: boolean;
     sessionId: string; data: BoardData; labelId: string; loading: boolean; pending: Set<string>;
@@ -46,6 +46,7 @@ export function ConversationBoard({ reminders = [], sessionId, data, labelId, lo
     onLabelsChange?: () => void;
     onCreateLabel?: (label: BoardData["labels"][number]) => void;
     onSaveColumn?: (column: KanbanColumnConfig) => void;
+    onDeleteColumn?: (stage: string) => void;
     reminders?: ReminderView[];
 }) {
     const [orientation,setOrientation] = useState<'horizontal'|'vertical'>('vertical');
@@ -80,6 +81,21 @@ export function ConversationBoard({ reminders = [], sessionId, data, labelId, lo
     };
     const [editing, setEditing] = useState<KanbanColumnConfig | null>(null);
     const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const deleteColumn = async () => {
+        if (!editing || deleting || DEFAULT_KANBAN_COLUMNS.some(column => column.id === editing.id)) return;
+        if (!window.confirm(`Excluir a coluna “${editing.name}”? As conversas organizadas nela voltarão para “Novo contato”.`)) return;
+        setDeleting(true);
+        try {
+            const response = await fetch(`/api/chat/${encodeURIComponent(sessionId)}/board?stage=${encodeURIComponent(editing.id)}`, { method: "DELETE" });
+            const result = await response.json();
+            if (!response.ok) throw Error(result.message || "Não foi possível excluir a coluna.");
+            onDeleteColumn?.(editing.id);
+            setEditing(null);
+            toast.success("Coluna excluída");
+        } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível excluir a coluna."); }
+        finally { setDeleting(false); }
+    };
     const [pinSaving, setPinSaving] = useState<string | null>(null);
     const pinCard = async (stage: KanbanColumnConfig, jid: string, pinned: boolean) => {
         if (pinSaving) return;
@@ -325,7 +341,7 @@ export function ConversationBoard({ reminders = [], sessionId, data, labelId, lo
                                     </LabelAssignPopover>
                                     </div>
                                 </div>
-                                <button type="button" onClick={() => onSelect(chat.jid, name)} className="flex gap-2.5 items-start w-full cursor-grab active:cursor-grabbing text-left rounded focus-visible:outline-2 focus-visible:outline-primary" aria-label={`Abrir conversa com ${name}`}>
+                                <button type="button" data-no-card-drag onPointerDown={() => { suppressClickUntil.current = 0; }} onClick={() => onSelect(chat.jid, name)} className="flex gap-2.5 items-start w-full cursor-pointer text-left rounded focus-visible:outline-2 focus-visible:outline-primary" aria-label={`Abrir conversa com ${name}`}>
                                     <ChatAvatar sessionId={sessionId} jid={chat.jid} name={name} profilePic={chat.profilePic} />
                                     <div className="min-w-0 flex-1"><p className="flex items-center gap-2 text-sm font-medium"><span className="truncate">{name}</span>{count > 0 && <span aria-label={`${count} mensagens não lidas`} className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] text-white"><span className="h-1.5 w-1.5 rounded-full bg-white motion-safe:animate-pulse" />{count > 99 ? "99+" : count}</span>}</p>
                                         {phoneFromJid(chat.jid) && <p className="mt-0.5 text-[10px] text-muted-foreground">{formatContactPhone(phoneFromJid(chat.jid)!)}</p>}
@@ -379,6 +395,7 @@ export function ConversationBoard({ reminders = [], sessionId, data, labelId, lo
                         <p className="text-xs text-muted-foreground">Com etiquetas, aparecem as conversas com qualquer uma das selecionadas. Sem etiquetas, a organização é manual. Uma conversa pode aparecer em mais de uma coluna.</p>
                     </fieldset>
                     <div className="flex justify-end gap-2">
+                        {!DEFAULT_KANBAN_COLUMNS.some(column => column.id === editing.id) && <button type="button" disabled={saving || deleting} onClick={deleteColumn} className="mr-auto rounded-lg px-3 py-2 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-50">{deleting ? "Excluindo…" : "Excluir coluna"}</button>}
                         <button type="button" disabled={saving} onClick={() => setEditing(null)} className="rounded-lg border px-4 py-2 text-sm">Cancelar</button>
                         <button type="submit" disabled={saving || creatingLabel || !editing.name.trim()} className="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm disabled:opacity-50">{saving ? "Salvando…" : "Salvar coluna"}</button>
                     </div>

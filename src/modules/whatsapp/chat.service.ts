@@ -378,7 +378,8 @@ export class ChatService {
         type: string,
         mimetype: string,
         fileName: string,
-        caption: string
+        caption: string,
+        mentions: string[] = []
     ) {
         const instance = waManager.getInstance(sessionId);
         if (!instance || !instance.socket) {
@@ -387,6 +388,7 @@ export class ChatService {
 
         const messageOptions: any = {};
         if (caption) messageOptions.caption = caption;
+        if (mentions.length) messageOptions.mentions = mentions;
         messageOptions.mimetype = mimetype;
 
         let content: any = {};

@@ -98,13 +98,14 @@ export const bindSessionStore = (sock: WASocket, sessionId: string, io: Server |
         // Fetch Bot Config for auto-read & welcome message
         const config = await prisma.botConfig.findUnique({
             where: { sessionId: dbSessionId }
-        });
+        }).catch(error => { logger.error("Store", "Bot config unavailable; continuing message sync", error); return null; });
 
         for (const msg of messages) {
             try {
                 // Auto Read Logic
                 if (type === 'notify' && (config as any)?.autoRead && !msg.key.fromMe) {
-                    await sock.readMessages([msg.key]);
+                    try { await sock.readMessages([msg.key]); }
+                    catch (error) { logger.warn("Store", "Auto-read failed; saving message anyway", error); }
                 }
 
                 // Pin/unpin notices update the chat's pinned messages instead of becoming a message.
@@ -160,13 +161,16 @@ export const bindSessionStore = (sock: WASocket, sessionId: string, io: Server |
         // Save all historical messages
         if (messages && messages.length > 0) {
             logger.info("Store", `Syncing ${messages.length} historical messages...`);
+            const recent: any[] = [];
             for (const msg of messages) {
                 try {
-                    await processAndSaveMessage(msg, dbSessionId, sessionId, false, sock, undefined, io);
+                    const saved = await processAndSaveMessage(msg, dbSessionId, sessionId, false, sock, undefined, io);
+                    if (saved) { recent.push({ ...saved, timestamp: saved.timestamp.toISOString() }); if (recent.length > 100) recent.shift(); }
                 } catch (error) {
                     logger.error("Store", "Error saving historical message", error);
                 }
             }
+            if (recent.length) io?.to(sessionId).emit('message.update', recent, { sessionId });
             logger.success("Store", `Finished syncing ${messages.length} historical messages`);
         }
 
@@ -270,10 +274,14 @@ export const bindSessionStore = (sock: WASocket, sessionId: string, io: Server |
                 const priorStatuses = status === 'READ' ? ['PENDING', 'SENT', 'DELIVERED']
                     : status === 'DELIVERED' ? ['PENDING', 'SENT']
                     : status === 'SENT' ? ['PENDING'] : [];
-                await prisma.message.updateMany({
+                const changed = await prisma.message.updateMany({
                     where: { sessionId: dbSessionId, keyId, status: { in: priorStatuses as any } },
                     data: { status: status as any }
                 });
+                if (changed.count) {
+                    const current = await prisma.message.findUnique({ where: { sessionId_keyId: { sessionId: dbSessionId, keyId } } });
+                    if (current) io?.to(sessionId).emit('message.update', [{ ...current, timestamp: current.timestamp.toISOString() }], { sessionId });
+                }
 
                 if (update.key.fromMe && update.key.remoteJid && !update.key.remoteJid.endsWith('@g.us') && Number(update.update.status) >= 3) {
                     const at = Number(update.update.messageTimestamp);
@@ -494,10 +502,11 @@ async function processAndSaveMessage(
     if (existingMessage && ((existingMessage.content?.trim() && existingMessage.content !== UNAVAILABLE_MESSAGE) || existingMessage.mediaUrl)) {
         // Message exists! Update status if changed, but DO NOT re-trigger webhooks/bot
         if (fromMe && existingMessage.status === 'PENDING') {
-            await prisma.message.update({
+            const updated = await prisma.message.update({
                 where: { id: existingMessage.id },
                 data: { status: 'SENT' }
             });
+            io?.to(sessionId).emit('message.update', [{ ...updated, timestamp: updated.timestamp.toISOString() }], { sessionId });
         }
         // Return null to indicate "Not New"
         return null;
@@ -647,9 +656,12 @@ async function processAndSaveMessage(
     try {
         if (existingMessage) {
             // Repair only an incomplete local copy when WhatsApp supplies it again.
-            if (text !== UNAVAILABLE_MESSAGE || fileUrl) await prisma.message.update({
+            if (text !== UNAVAILABLE_MESSAGE || fileUrl) {
+                const repaired = await prisma.message.update({
                 where: { id: existingMessage.id }, data: { content: text, type: messageType as any, mediaUrl: fileUrl || existingMessage.mediaUrl }
-            });
+                });
+                io?.to(sessionId).emit('message.update', [{ ...repaired, timestamp: repaired.timestamp.toISOString() }], { sessionId });
+            }
             return null;
         }
         const newMessage = await prisma.message.create({
@@ -673,18 +685,7 @@ async function processAndSaveMessage(
         const finalRemoteJid = normalizeJid(normalizedRemoteJid);
         if (remoteJid && !remoteJid.includes('@g.us') && !remoteJid.includes('status@broadcast')) {
             const contactJid = finalRemoteJid; // Use fully normalized JID
-            const contactData: any = {
-                sessionId: dbSessionId,
-                jid: contactJid
-            };
-
-            // Only update name/notify if message is FROM the contact (not from me)
-            if (!fromMe) {
-                if (pushName) contactData.notify = pushName;
-                if (pushName) contactData.name = pushName;
-            }
-
-            const contact = await prisma.contact.upsert({
+            try { await prisma.contact.upsert({
                 where: { sessionId_jid: { sessionId: dbSessionId, jid: contactJid } },
                 create: {
                     sessionId: dbSessionId,
@@ -699,10 +700,10 @@ async function processAndSaveMessage(
                     // @ts-ignore
                     remoteJidAlt: remoteJidAlt || undefined
                 } : {}
-            });
+            }); } catch (error) { logger.error("Store", "Contact update failed after message save", error); }
 
             // Welcome Message Logic
-            if (!fromMe && triggerWebhook && config?.welcomeMessage && sock) {
+            if (!fromMe && triggerWebhook && config?.welcomeMessage && sock) try {
                 // Let's check if message count for this contact is exactly 1 (the one we just saved)
                 const msgCount = await prisma.message.count({
                     where: { sessionId: dbSessionId, remoteJid: finalRemoteJid }
@@ -712,7 +713,7 @@ async function processAndSaveMessage(
                     logger.info("Store", `Sending welcome message to ${finalRemoteJid}`);
                     await sock.sendMessage(finalRemoteJid, { text: config.welcomeMessage });
                 }
-            }
+            } catch (error) { logger.error("Store", "Welcome message failed after message save", error); }
         }
 
         // Trigger webhook for new messages only (not history sync)

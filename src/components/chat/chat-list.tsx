@@ -229,6 +229,9 @@ function ChatRow({
                 <ChatContextMenu state={ctxMenu} onClose={() => setCtxMenu(null)} sessionId={sessionId} onSelect={onSelect} />
             )}
             <div
+                role="button"
+                tabIndex={0}
+                aria-label={`Abrir conversa com ${displayName}`}
                 className={cn(
                     "relative w-full flex items-center gap-3 px-3 py-2.5 transition-colors duration-150 border-b border-border/10 group overflow-hidden cursor-pointer",
                     isSelected
@@ -236,6 +239,7 @@ function ChatRow({
                         : unreadCount > 0 ? "bg-emerald-500/10 border-l-2 border-l-emerald-500" : "hover:bg-muted/40 border-l-2 border-l-transparent"
                 )}
                 onClick={() => onSelect(chat.jid, displayName)}
+                onKeyDown={event => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onSelect(chat.jid, displayName); } }}
                 onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, jid: chat.jid, name: displayName }); }}
             >
                 <ChatAvatar sessionId={sessionId} jid={chat.jid} name={displayName} profilePic={chat.profilePic} />
@@ -376,7 +380,7 @@ export function ChatList({ sessionId, onSelectChat, selectedJid, labelId, column
     useEffect(() => {
         const socket = getSocket();
         if (!socket) return;
-        const onConnect = () => joinSession(sessionId);
+        const onConnect = () => { joinSession(sessionId); void fetchChats(); };
         if (socket.connected) joinSession(sessionId);
         socket.on("connect", onConnect);
         const handler = async (incoming: any[], source: unknown) => {
@@ -394,6 +398,21 @@ export function ChatList({ sessionId, onSelectChat, selectedJid, labelId, column
         window.addEventListener(CONFIRMED_CHAT_EVENT, local);
         return () => { socket.off("connect", onConnect); socket.off("message.update", handler); window.removeEventListener(CONFIRMED_CHAT_EVENT, local); };
     }, [sessionId, getSocket, joinSession, fetchChats, filter, labelId, columnId]);
+
+    useEffect(() => {
+        if (!filterReady) return;
+        let lastRefresh = 0;
+        const refresh = () => {
+            if (document.visibilityState !== "visible" || !navigator.onLine || Date.now() - lastRefresh < 4000) return;
+            lastRefresh = Date.now();
+            void fetchChats();
+        };
+        window.addEventListener("focus", refresh);
+        window.addEventListener("online", refresh);
+        document.addEventListener("visibilitychange", refresh);
+        const timer = window.setInterval(refresh, 60_000);
+        return () => { window.removeEventListener("focus", refresh); window.removeEventListener("online", refresh); document.removeEventListener("visibilitychange", refresh); window.clearInterval(timer); };
+    }, [fetchChats, filterReady]);
 
     // Fetch label assignments for all chats
     useEffect(() => {

@@ -93,6 +93,27 @@ export async function PATCH(request: NextRequest, context: Context) {
     }
 }
 
+export async function DELETE(request: NextRequest, context: Context) {
+    try {
+        const session = await authorizedSession(request, context);
+        if (session instanceof NextResponse) return session;
+        const stage = new URL(request.url).searchParams.get("stage");
+        if (!stage || CHAT_STAGES.some(column => column.id === stage)) return NextResponse.json({ message: "As colunas padrão não podem ser excluídas." }, { status: 400 });
+        const removed = await prisma.$transaction(async tx => {
+            const column = await tx.kanbanColumn.findUnique({ where: { sessionId_stage: { sessionId: session.id, stage } } });
+            if (!column) return false;
+            await tx.chatStage.updateMany({ where: { sessionId: session.id, stage }, data: { stage: "new" } });
+            await tx.kanbanColumn.delete({ where: { id: column.id } });
+            return true;
+        });
+        if (!removed) return NextResponse.json({ message: "Coluna não encontrada." }, { status: 404 });
+        return NextResponse.json({ success: true, movedTo: "new" });
+    } catch (error) {
+        console.error("Kanban column delete failed", error);
+        return NextResponse.json({ message: "Não foi possível excluir a coluna." }, { status: 500 });
+    }
+}
+
 const orderSchema = z.object({
     stage: z.string().min(1).max(100),
     order: z.array(z.string().min(1).max(150)).min(1).max(5000).refine(items => new Set(items).size === items.length),
