@@ -5,6 +5,7 @@ import type { NextRequest } from "next/server";
 
 export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
+    const redirectBase = process.env.BASE_URL || request.url;
 
     // Public routes that don't require authentication
     const publicRoutes = ["/auth/login", "/auth/register", "/api/auth", "/terms", "/privacy"];
@@ -63,7 +64,7 @@ export async function proxy(request: NextRequest) {
         const session = await auth();
 
         if (!session?.user) {
-            const loginUrl = new URL("/auth/login", request.url);
+            const loginUrl = new URL("/auth/login", redirectBase);
             loginUrl.searchParams.set("callbackUrl", pathname);
             return NextResponse.redirect(loginUrl);
         }
@@ -75,7 +76,7 @@ export async function proxy(request: NextRequest) {
     if (pathname === "/") {
         const session = await auth();
         if (session?.user) {
-            return NextResponse.redirect(new URL("/dashboard", request.url));
+            return NextResponse.redirect(new URL("/dashboard", redirectBase));
         }
         return NextResponse.next();
     }
@@ -84,7 +85,7 @@ export async function proxy(request: NextRequest) {
     if (isPublicRoute) {
         const session = await auth();
         if (session?.user && (pathname.startsWith("/auth/login") || pathname.startsWith("/auth/register"))) {
-            return NextResponse.redirect(new URL("/dashboard", request.url));
+            return NextResponse.redirect(new URL("/dashboard", redirectBase));
         }
         return NextResponse.next();
     }
@@ -92,7 +93,7 @@ export async function proxy(request: NextRequest) {
     // Default: require auth for everything else
     const session = await auth();
     if (!session?.user) {
-        const loginUrl = new URL("/auth/login", request.url);
+        const loginUrl = new URL("/auth/login", redirectBase);
         loginUrl.searchParams.set("callbackUrl", pathname);
         return NextResponse.redirect(loginUrl);
     }
