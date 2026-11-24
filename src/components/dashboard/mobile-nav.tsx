@@ -11,8 +11,9 @@ import { useTranslations } from "next-intl";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { navGroups } from "./sidebar-nav";
 import pkg from "../../../package.json";
+import { TaskChatLogo } from "@/components/brand/taskchat-logo";
 
-export function MobileNav({ appName = "WA-AKG" }: { appName?: string }) {
+export function MobileNav({ appName = "TaskChat" }: { appName?: string }) {
     const [open, setOpen] = useState(false);
     const pathname = usePathname();
     const { data: session } = useSession();
@@ -34,7 +35,7 @@ export function MobileNav({ appName = "WA-AKG" }: { appName?: string }) {
             </SheetTrigger>
             <SheetContent side="left" className="w-[85vw] sm:w-[320px] p-0 flex flex-col">
                 <SheetHeader className="px-5 py-4 text-left border-b border-slate-100">
-                    <SheetTitle className="text-xl font-bold text-slate-800">{appName}</SheetTitle>
+                    <SheetTitle className="flex items-center gap-3 text-xl font-bold text-foreground"><TaskChatLogo />{appName}</SheetTitle>
                     <SheetDescription className="text-[11px] text-slate-400 -mt-1">{t("common.tagline")}</SheetDescription>
                 </SheetHeader>
 

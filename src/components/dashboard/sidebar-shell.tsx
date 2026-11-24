@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useTranslations } from "next-intl";
+import { TaskChatLogo } from "@/components/brand/taskchat-logo";
 
 interface SidebarShellProps {
     appName: string;
@@ -32,17 +33,18 @@ export function SidebarShell({ appName, userName, userEmail, version }: SidebarS
             <div className={`border-b border-border/30 transition-all duration-300 ${isCollapsed ? "px-3 py-4" : "px-5 py-5"}`}>
                 {isCollapsed ? (
                     <div className="flex justify-center">
-                        <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary to-blue-500 flex items-center justify-center text-white font-bold text-sm shadow-md">
-                            {appName.charAt(0)}
-                        </div>
+                        <TaskChatLogo className="h-10 w-10" />
                     </div>
                 ) : (
-                    <>
+                    <div className="flex items-center gap-3">
+                        <TaskChatLogo className="h-11 w-11 shrink-0" />
+                        <div>
                         <h1 className="text-xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-500">
                             {appName}
                         </h1>
                         <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">{t("tagline")}</p>
-                    </>
+                        </div>
+                    </div>
                 )}
             </div>
 

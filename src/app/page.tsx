@@ -1,21 +1,22 @@
+import { TaskChatLogo } from "@/components/brand/taskchat-logo";
 import Link from "next/link";
-import { ArrowRight, Bot, Github, Zap, Shield, Globe, MessageSquare, Clock, Code, ChevronRight } from "lucide-react";
+import { ArrowRight, Github, Zap, Shield, Globe, MessageSquare, Clock, Code, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import fs from "fs";
 import path from "path";
 
 export const metadata = {
-  title: "WA-AKG | Premium WhatsApp Gateway",
+  title: "TaskChat | WhatsApp",
   description: "A powerful, self-hosted dashboard to manage your WhatsApp sessions, schedules, and auto-replies. Built for modern businesses.",
   openGraph: {
-    title: "WA-AKG | Premium WhatsApp Gateway",
+    title: "TaskChat | WhatsApp",
     description: "Self-hosted WhatsApp Gateway with Multi-device support, Auto-replies, and API integration.",
     type: "website",
     url: process.env.NEXT_PUBLIC_APP_URL || "https://wa-akg.app",
   },
   twitter: {
     card: "summary_large_image",
-    title: "WA-AKG | Premium WhatsApp Gateway",
+    title: "TaskChat | WhatsApp",
     description: "Self-hosted WhatsApp Gateway with Multi-device support, Auto-replies, and API integration.",
   },
 };
@@ -37,10 +38,10 @@ export default function Home() {
         <div className="glass rounded-full px-4 md:px-8 h-14 md:h-16 flex items-center justify-between mx-auto shadow-lg shadow-black/5 dark:shadow-black/20 border border-white/40 dark:border-white/10">
           <div className="flex items-center gap-3 font-bold text-xl">
             <div className="relative flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-primary text-white shadow-inner">
-              <Bot className="h-5 w-5 md:h-6 md:w-6" />
+              <TaskChatLogo className="h-8 w-8 md:h-10 md:w-10" />
               <div className="absolute inset-0 rounded-full bg-primary blur-md -z-10 opacity-50 animate-pulse-glow" />
             </div>
-            <span className="text-foreground tracking-tight hidden sm:inline-block">WA-AKG</span>
+            <span className="text-foreground tracking-tight hidden sm:inline-block">TaskChat</span>
           </div>
 
           <nav className="hidden md:flex items-center gap-8">
@@ -178,9 +179,9 @@ export default function Home() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-xl bg-primary/10">
-                <Bot className="h-6 w-6 text-primary" />
+                <TaskChatLogo className="h-10 w-10" />
               </div>
-              <span className="text-xl font-bold text-foreground">WA-AKG</span>
+              <span className="text-xl font-bold text-foreground">TaskChat</span>
             </div>
             <div className="flex gap-8 text-sm font-medium">
               <Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">Privacy</Link>
@@ -188,7 +189,7 @@ export default function Home() {
               <Link href="https://github.com/mrifqidaffaaditya/WA-AKG" className="text-muted-foreground hover:text-foreground transition-colors">GitHub</Link>
             </div>
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} WA-AKG. Released under MIT.
+              © {new Date().getFullYear()} TaskChat. Released under MIT.
             </p>
           </div>
         </div>
