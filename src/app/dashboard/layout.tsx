@@ -1,3 +1,5 @@
+import Script from "next/script";
+import "@/styles/taskflow-chat.css";
 import { auth } from "@/lib/auth";
 import { Navbar } from "@/components/dashboard/navbar";
 import { SessionProvider } from "@/components/dashboard/session-provider";
@@ -16,13 +18,13 @@ export default async function DashboardLayout({
     children: React.ReactNode;
 }) {
     const session = await auth();
-    // @ts-ignore
     const systemConfig = await prisma.systemConfig.findUnique({ where: { id: "default" } });
     const appName = systemConfig?.appName || "WA-AKG";
     const registrationEnabled = systemConfig?.enableRegistration ?? true;
 
     return (
         <SessionProvider>
+            <Script src="/taskflow/chat-enhancements.js" strategy="afterInteractive" />
             <SidebarProvider>
                 <UpdateChecker />
                 <RegistrationWarning
