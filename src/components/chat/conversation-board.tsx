@@ -377,7 +377,7 @@ export function ConversationBoard({ reminders = [], sessionId, data, labelId, lo
                         <legend className="text-sm font-medium">Cor da coluna</legend>
                         <div className="flex flex-wrap items-center gap-2">
                             {["#64748b", "#3b82f6", "#8b5cf6", "#ec4899", "#ef4444", "#f59e0b", "#10b981", "#06b6d4"].map(color => <button key={color} type="button" aria-label={`Usar cor ${color}`} aria-pressed={editing.color.toLowerCase() === color} onClick={() => setEditing({ ...editing, color })} className={`h-7 w-7 rounded-full border-2 border-background ${editing.color.toLowerCase() === color ? "ring-2 ring-foreground ring-offset-2 ring-offset-background" : ""}`} style={{ backgroundColor: color }} />)}
-                            <label className="flex items-center gap-2 text-xs">Personalizada<input aria-label="Cor personalizada da coluna" type="color" value={editing.color} onChange={e => setEditing({ ...editing, color: e.target.value })} className="h-8 w-10 cursor-pointer rounded border bg-background p-0.5" /></label>
+                            <label className="flex items-center gap-2 text-xs">Personalizada<ColumnColorInput value={editing.color} onCommit={color => setEditing(current => current && { ...current, color })} /></label>
                         </div>
                     </fieldset>
                     <fieldset disabled={saving} className="space-y-2">
@@ -403,4 +403,20 @@ export function ConversationBoard({ reminders = [], sessionId, data, labelId, lo
             </DialogContent>
         </Dialog>
     </div>;
+}
+
+// Dragging inside the native color picker fires an input event per pixel. Keeping the value
+// local and committing after a short pause stops the whole board from re-rendering each time.
+function ColumnColorInput({ value, onCommit }: { value: string; onCommit: (color: string) => void }) {
+    const [draft, setDraft] = useState(value);
+    const [synced, setSynced] = useState(value);
+    if (value !== synced) { setSynced(value); setDraft(value); }
+    const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const latest = useRef(value);
+    useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+    const flush = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; onCommit(latest.current); } };
+    return <input aria-label="Cor personalizada da coluna" type="color" value={draft}
+        onChange={e => { const color = e.target.value; latest.current = color; setDraft(color); if (timer.current) clearTimeout(timer.current); timer.current = setTimeout(flush, 120); }}
+        onBlur={flush}
+        className="h-8 w-10 cursor-pointer rounded border bg-background p-0.5" />;
 }

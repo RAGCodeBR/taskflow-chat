@@ -7,38 +7,38 @@
   --card-foreground: oklch(0.18 0.04 260) !important;
   --popover: oklch(1 0 0) !important;
   --popover-foreground: oklch(0.18 0.04 260) !important;
-  --primary: oklch(0.28 0.09 264) !important;
-  --primary-foreground: oklch(0.98 0.005 250) !important;
+  --primary: oklch(0.56 0.21 262) !important;
+  --primary-foreground: oklch(0.99 0.005 250) !important;
   --secondary: oklch(0.95 0.012 250) !important;
-  --secondary-foreground: oklch(0.28 0.09 264) !important;
+  --secondary-foreground: oklch(0.3 0.1 258) !important;
   --muted: oklch(0.95 0.012 250) !important;
   --muted-foreground: oklch(0.5 0.03 260) !important;
-  --accent: oklch(0.93 0.03 250) !important;
-  --accent-foreground: oklch(0.28 0.09 264) !important;
+  --accent: oklch(0.94 0.04 232) !important;
+  --accent-foreground: oklch(0.3 0.1 258) !important;
   --destructive: oklch(0.58 0.22 27) !important;
   --destructive-foreground: oklch(0.98 0 0) !important;
   --border: oklch(0.9 0.012 250) !important;
   --input: oklch(0.92 0.012 250) !important;
-  --ring: oklch(0.45 0.16 264) !important;
+  --ring: oklch(0.72 0.15 220) !important;
 }
 .dark {
-  --background: oklch(0.175 0.012 250) !important;
+  --background: oklch(0.17 0.04 250) !important;
   --foreground: oklch(0.94 0.008 250) !important;
-  --card: oklch(0.22 0.014 250) !important;
+  --card: oklch(0.21 0.045 250) !important;
   --card-foreground: oklch(0.94 0.008 250) !important;
-  --popover: oklch(0.235 0.016 250) !important;
+  --popover: oklch(0.23 0.05 250) !important;
   --popover-foreground: oklch(0.94 0.008 250) !important;
-  --primary: oklch(0.68 0.11 232) !important;
-  --primary-foreground: oklch(0.16 0.015 250) !important;
-  --secondary: oklch(0.275 0.016 250) !important;
+  --primary: oklch(0.8 0.15 215) !important;
+  --primary-foreground: oklch(0.2 0.05 250) !important;
+  --secondary: oklch(0.26 0.045 250) !important;
   --secondary-foreground: oklch(0.94 0.008 250) !important;
-  --muted: oklch(0.265 0.014 250) !important;
-  --muted-foreground: oklch(0.72 0.014 250) !important;
-  --accent: oklch(0.31 0.024 235) !important;
+  --muted: oklch(0.25 0.04 250) !important;
+  --muted-foreground: oklch(0.74 0.03 240) !important;
+  --accent: oklch(0.3 0.07 240) !important;
   --accent-foreground: oklch(0.95 0.008 250) !important;
-  --border: oklch(0.34 0.016 250) !important;
-  --input: oklch(0.285 0.014 250) !important;
-  --ring: oklch(0.68 0.11 232) !important;
+  --border: oklch(0.33 0.05 250) !important;
+  --input: oklch(0.28 0.045 250) !important;
+  --ring: oklch(0.8 0.15 215) !important;
 }
 html,body { background:var(--background)!important; color:var(--foreground)!important; font-family:var(--taskflow-font,ui-sans-serif,system-ui,sans-serif)!important; }
 /* Standalone mode keeps the dashboard navigation and account controls available. */
@@ -50,18 +50,18 @@ main.styled-scrollbar > div[class*="h-[calc"] { height:100%!important; min-heigh
 /* WhatsApp Business palette for the chat surfaces (light / dark). TaskFlow keeps its own
    --primary etc. for the toolbar; conversations, cards and windows use these. */
 :root {
-  --wa-teal:#008069; --wa-accent:#00a884; --wa-green:#25d366;
-  --wa-panel:#f0f2f5; --wa-surface:#ffffff; --wa-field:#ffffff; --wa-wall:#efeae2;
-  --wa-out:#d9fdd3; --wa-in:#ffffff; --wa-ink:#111b21; --wa-ink-2:#667781; --wa-line:#e9edef;
-  --wa-hover:#f5f6f6; --wa-chip:#ffffff; --wa-quote-in:#f5f6f6; --wa-quote-out:#d1f4cc; --wa-doodle:#7d8f86;
+  --wa-teal:#1259d6; --wa-accent:#1f6bff; --wa-green:#0b84d8;
+  --wa-panel:#eef3f9; --wa-surface:#ffffff; --wa-field:#ffffff; --wa-wall:#edf2f8;
+  --wa-out:#dcefff; --wa-in:#ffffff; --wa-ink:#0b1b2e; --wa-ink-2:#5f7189; --wa-line:#e3eaf2;
+  --wa-hover:#f2f6fb; --wa-chip:#ffffff; --wa-quote-in:#f2f6fb; --wa-quote-out:#c8e4fc; --wa-doodle:#8aa0b8;
   --wa-bubble-shadow:0 1px .5px rgb(11 20 26 / .13); --wa-badge-ink:#ffffff;
 }
 .dark {
-  --wa-teal:#00a884; --wa-accent:#00a884; --wa-green:#00a884;
-  --wa-panel:#202c33; --wa-surface:#111b21; --wa-field:#2a3942; --wa-wall:#0b141a;
-  --wa-out:#005c4b; --wa-in:#202c33; --wa-ink:#e9edef; --wa-ink-2:#8696a0; --wa-line:#222d34;
-  --wa-hover:#2a3942; --wa-chip:#182229; --wa-quote-in:#1d282f; --wa-quote-out:#025144; --wa-doodle:#8696a0;
-  --wa-bubble-shadow:0 1px .5px rgb(0 0 0 / .3); --wa-badge-ink:#111b21;
+  --wa-teal:#4fdcff; --wa-accent:#2677ff; --wa-green:#00d4ff;
+  --wa-panel:#0f2238; --wa-surface:#071526; --wa-field:#13283f; --wa-wall:#050f1c;
+  --wa-out:#0d3a6b; --wa-in:#10243a; --wa-ink:#e6f1fb; --wa-ink-2:#8ba3bd; --wa-line:#17304a;
+  --wa-hover:#13283f; --wa-chip:#0c1f33; --wa-quote-in:#0c1e31; --wa-quote-out:#0a3158; --wa-doodle:#4f6f91;
+  --wa-bubble-shadow:0 1px .5px rgb(0 0 0 / .3); --wa-badge-ink:#06182d;
 }
 :root {
   --tf-ease:cubic-bezier(.23,1,.32,1);
@@ -184,7 +184,7 @@ svg.lucide { stroke-width:1.75!important; }
 [data-slot="dialog-content"]:has(#kanban-chat-description) > div:first-child button:active { transform:scale(.96); }
 
 /* Chat header */
-.backdrop-blur-sm.border-b:has(> div > h3),.backdrop-blur-sm.border-b:has(h3.truncate) { padding:10px 16px!important; background:color-mix(in oklab,var(--card) 88%,transparent)!important; border-color:var(--tf-hair)!important; backdrop-filter:blur(12px)!important; }
+.backdrop-blur-sm.border-b:has(> div > h3),.backdrop-blur-sm.border-b:has(h3.truncate) { padding:10px 16px!important; background:var(--card)!important; border-color:var(--tf-hair)!important; backdrop-filter:none!important; }
 .backdrop-blur-sm.border-b h3.truncate { font-size:15px!important; font-weight:650!important; letter-spacing:-.01em; }
 .backdrop-blur-sm.border-b h3.truncate + p { font-size:11.5px!important; font-variant-numeric:tabular-nums; }
 
@@ -236,7 +236,7 @@ svg.lucide { stroke-width:1.75!important; }
 .cursor-context-menu[data-participant-bubble="true"] > span:first-child::before { content:""; width:7px; height:7px; flex:none; border-radius:999px; background:var(--p-dot); }
 
 /* Composer */
-.border-t:has(textarea) { background:color-mix(in oklab,var(--card) 90%,transparent)!important; border-color:var(--tf-hair)!important; backdrop-filter:blur(12px); padding:10px 14px!important; }
+.border-t:has(textarea) { background:var(--card)!important; border-color:var(--tf-hair)!important; backdrop-filter:none!important; padding:10px 14px!important; }
 div:has(> textarea).rounded-2xl { border:1px solid var(--tf-hair)!important; background:var(--background)!important; border-radius:22px!important; transition:border-color .15s ease,box-shadow .2s var(--tf-ease); }
 div:has(> textarea).rounded-2xl:focus-within { border-color:color-mix(in oklab,var(--ring) 55%,transparent)!important; box-shadow:0 0 0 4px color-mix(in oklab,var(--ring) 12%,transparent); }
 div:has(> textarea).rounded-2xl textarea { background:transparent!important; border:0!important; box-shadow:none!important; outline:none!important; padding-left:12px!important; }
@@ -519,3 +519,13 @@ button[aria-label="Enviar mensagem"],button[aria-label="Enviando mensagem"] { ba
 @media (prefers-reduced-motion:reduce) {
   .wa-dock-window,.wa-dock-head,.wa-dock-badge { animation:none!important; transition:none!important; }
 }
+
+/* TaskChat brand: neon lightning blue from the logo. The glow lives only on the send
+   action and the focused window, so it reads as a signal instead of decoration. */
+:root { --tc-bolt:linear-gradient(150deg,#00d4ff 0%,#2677ff 100%); --tc-glow:0 6px 18px -6px rgb(0 180 255 / .55); }
+.dark { --tc-glow:0 0 0 1px rgb(0 212 255 / .35),0 6px 22px -4px rgb(0 212 255 / .5); }
+button[aria-label="Enviar mensagem"],button[aria-label="Enviando mensagem"] { background:var(--tc-bolt)!important; box-shadow:var(--tc-glow)!important; }
+.wa-dock-window[data-active="true"] { outline-color:color-mix(in oklab,var(--wa-green) 60%,transparent); }
+.dark .wa-dock-window[data-active="true"] { box-shadow:0 0 0 1px rgb(0 212 255 / .3),0 24px 60px -18px rgb(0 0 0 / .7),0 0 32px -8px rgb(0 212 255 / .28)!important; }
+.dark .tf-unread-filter[aria-pressed="true"] { color:var(--wa-badge-ink); }
+@media (prefers-reduced-motion:reduce) { button[aria-label="Enviar mensagem"] { transition:none!important; } }
